@@ -1,7 +1,7 @@
 ---
 name: ship
 description: Full GitHub ship workflow — create issue, push branch, open PR, review, wait for CI, merge, then deploy locally. Use when the user wants to ship the current changes end-to-end.
-allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(gcloud:*)
+allowed-tools: Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(npx:*)
 ---
 
 # Ship
@@ -65,8 +65,9 @@ Run the full end-to-end ship workflow for the current changes.
 
 ### 9. Deploy from local
 - Pull latest main: `git checkout main && git pull`
-- Run the project-specific deploy command (check CLAUDE.md or ask the user if unsure)
-- For krakbot: `gcloud run jobs execute bot --region us-central1 --project krakbot-prod --update-env-vars TIMEFRAME_MINUTES=15`
+- Determine which app(s) were changed (from the PR diff)
+- Run: `pnpm nx deploy <app-name>` for each affected app (e.g. `pnpm nx deploy bot`, `pnpm nx deploy dashboard`)
+- If the project has no `deploy` target, check CLAUDE.md or ask the user
 - Confirm the deploy completed
 
 ### 10. Report
