@@ -6,17 +6,12 @@
   },
   "permissions": {
     "allow": ["Bash", "Edit"],
-    "deny": [
-      "Bash(curl *)",
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ]
+    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
   },
-  "model": "sonnet",
   "enabledPlugins": {
     "discord@claude-plugins-official": true,
-    "firebase@firebase": true
+    "firebase@firebase": true,
+    "caveman@caveman": true
   },
   "extraKnownMarketplaces": {
     "firebase": {
@@ -24,14 +19,21 @@
         "source": "github",
         "repo": "firebase/firebase-tools"
       }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
     }
   },
+  "effortLevel": "medium",
+  "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754085886469
   },
   "preferences": {
     "tmuxSplitPanes": true
-  },
-  "autoDreamEnabled": true
+  }
 }
