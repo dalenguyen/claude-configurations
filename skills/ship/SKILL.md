@@ -53,23 +53,19 @@ Run the full end-to-end ship workflow for the current changes.
 - If issues found: fix them, commit, push — the PR updates automatically
 - Post a review summary comment: `gh pr review --comment -b "..."`
 
-### 7. Wait for CI
-- `gh pr checks --watch` — poll until all checks complete
-- If checks fail: read the failure output, fix the issue, push a new commit, re-watch
-- **Never merge with failing CI**
 
-### 8. Merge
+### 7. Merge
 - Once CI passes and the self-review is clean:
 - `gh pr merge --squash --delete-branch`
 - Confirm the merge was successful
 
-### 9. Deploy from local
+### 8. Deploy from local
 - Pull latest main: `git checkout main && git pull`
 - Determine which app(s) were changed (from the PR diff)
 - Run: `pnpm nx deploy <app-name>` for each affected app (e.g. `pnpm nx deploy bot`, `pnpm nx deploy dashboard`)
 - If the project has no `deploy` target, check CLAUDE.md or ask the user
 - Confirm the deploy completed
 
-### 10. Report
+### 9. Report
 - Output a concise summary: issue URL, PR URL, merge commit, deploy status
 - Send a Discord report if configured (chat_id `1484738057507966976`)

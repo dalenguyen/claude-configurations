@@ -1,4 +1,4 @@
-- In all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision.
+- Use /caveman skill
 - When working with Nx workspace, use official command to create a lib or app. Don't create the folder manually.
 
 ## Git

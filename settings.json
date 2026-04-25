@@ -5,13 +5,23 @@
     "ENABLE_TOOL_SEARCH": "1"
   },
   "permissions": {
-    "allow": ["Bash", "Edit"],
-    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)"]
+    "allow": [
+      "Bash",
+      "Edit"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ]
   },
   "enabledPlugins": {
     "discord@claude-plugins-official": true,
     "firebase@firebase": true,
-    "caveman@caveman": true
+    "caveman@caveman": true,
+    "superpowers@claude-plugins-official": true,
+    "warp@claude-code-warp": true,
+    "stripe@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "firebase": {
@@ -24,6 +34,12 @@
       "source": {
         "source": "github",
         "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
       }
     }
   },
