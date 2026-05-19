@@ -18,9 +18,10 @@ Ask the user if any values are missing:
 | App type (if adding app) | `node` (Fastify/backend) / `analog` (Angular SSR frontend) |
 | Lib type (if adding lib) | `models` / `data-access` / `service` / `ui` / `util` |
 | App/lib name | e.g. `api`, `dashboard`, `notifications` |
-| GCP Project ID (for deploy) | e.g. `my-gcp-project` |
+| GCP Project ID (for deploy) | e.g. `maplestocks-prod` |
 | GCP Region | e.g. `us-central1` |
-| GCP Artifact Registry repo name | e.g. `myapp` |
+| GCP Artifact Registry repo name | e.g. `maplestocks` |
+| Cloud Run service name | e.g. `maplestocks-scheduler` (used as `serviceName`) |
 | Public or internal service? | `public` → unauthenticated / `internal` → no public access |
 | Secrets to mount from Secret Manager | e.g. `DB_URL`, `API_KEY` |
 | Plain env vars | e.g. `NODE_ENV=production`, `GCP_PROJECT_ID=xxx` |
@@ -45,7 +46,22 @@ Commit: `chore: init Nx workspace`
 
 ---
 
-## Step 3 — Add a Node.js app (backend / scheduler / worker)
+## Step 3 — Ensure `@maplestocks/gcloud` executor lib exists
+
+The deploy targets use `@maplestocks/gcloud:cloud-run`. Verify it's present before wiring deploy:
+
+```bash
+ls libs/gcloud/package.json   # should exist
+```
+
+If missing, it must be scaffolded first (see `libs/gcloud` in the maplestocks repo). Also confirm:
+
+- `pnpm-workspace.yaml` has `packages: ['libs/*']`
+- `tsconfig.base.json` paths includes `"@maplestocks/gcloud": ["libs/gcloud/src/index.ts"]`
+
+---
+
+## Step 4 — Add a Node.js app (backend / scheduler / worker)
 
 ```bash
 pnpm nx g @nx/node:app apps/<name> \
@@ -57,82 +73,17 @@ pnpm nx g @nx/node:app apps/<name> \
 
 ### project.json targets to add/verify
 
-Open `apps/<name>/project.json` and ensure:
+See `reference/node-app-project-targets.json`. Substitute `<name>`, `<REGION>`, `<PROJECT_ID>`, `<REPO>`, `<service-name>`, and `<SECRET_NAME>` throughout.
 
-```json
-{
-  "name": "<name>",
-  "projectType": "application",
-  "tags": ["scope:app", "type:<name>"],
-  "targets": {
-    "build": {
-      "executor": "@nx/esbuild:esbuild",
-      "outputs": ["{options.outputPath}"],
-      "options": {
-        "outputPath": "dist/apps/<name>",
-        "main": "apps/<name>/src/main.ts",
-        "tsConfig": "apps/<name>/tsconfig.app.json",
-        "platform": "node",
-        "format": ["cjs"],
-        "bundle": true,
-        "thirdParty": true,
-        "esbuildOptions": { "outExtension": { ".js": ".js" } }
-      }
-    },
-    "serve": {
-      "executor": "@nx/js:node",
-      "options": { "buildTarget": "<name>:build" }
-    },
-    "test": {
-      "executor": "@nx/vitest:test",
-      "options": { "config": "apps/<name>/vite.config.ts" }
-    },
-    "deploy": {
-      "executor": "nx:run-commands",
-      "dependsOn": ["build"],
-      "options": {
-        "command": "docker build --platform linux/amd64 -f apps/<name>/Dockerfile -t <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest . && gcloud auth configure-docker --quiet && docker push <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest && gcloud run deploy <project>-<name> --image <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest --region <REGION> --platform managed --no-allow-unauthenticated --ingress internal --project <PROJECT_ID> --port 8080 --set-env-vars NODE_ENV=production --set-secrets <SECRETS>"
-      }
-    }
-  }
-}
-```
-
-For **public** services replace `--no-allow-unauthenticated --ingress internal` with `--allow-unauthenticated`.
+For **public** services, remove `"ingress": "internal"` and add `"allowUnauthenticated": true` to the `deploy-cloudrun` production config.
 
 ### Dockerfile for Node.js app
 
-Create `apps/<name>/Dockerfile`:
-
-```dockerfile
-# Build stage
-FROM node:22-alpine AS builder
-WORKDIR /app
-
-RUN npm install -g pnpm
-
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm nx build <name> --configuration=production
-
-# Production stage
-FROM node:22-alpine AS runner
-WORKDIR /app
-
-COPY --from=builder /app/dist/apps/<name> ./
-
-EXPOSE 8080
-ENV PORT=8080
-ENV NODE_ENV=production
-
-CMD ["node", "main.js"]
-```
+Copy `reference/node-app.Dockerfile` to `apps/<name>/Dockerfile` and replace `<name>`.
 
 ---
 
-## Step 4 — Add an AnalogJS/Angular SSR app (frontend)
+## Step 5 — Add an AnalogJS/Angular SSR app (frontend)
 
 ```bash
 # Install AnalogJS if not present
@@ -149,74 +100,15 @@ pnpm nx g @nx/angular:app apps/<name> \
 
 ### project.json targets
 
-```json
-{
-  "name": "<name>",
-  "projectType": "application",
-  "tags": ["scope:app", "type:web"],
-  "targets": {
-    "build": {
-      "executor": "@analogjs/platform:vite",
-      "outputs": ["{options.outputPath}"],
-      "options": {
-        "outputPath": "dist/apps/<name>",
-        "configFile": "apps/<name>/vite.config.ts",
-        "main": "apps/<name>/src/main.ts",
-        "tsConfig": "apps/<name>/tsconfig.app.json"
-      }
-    },
-    "serve": {
-      "executor": "@analogjs/platform:vite-dev-server",
-      "options": { "buildTarget": "<name>:build", "port": 4200 }
-    },
-    "test": {
-      "executor": "@nx/vitest:test",
-      "options": { "config": "apps/<name>/vitest.config.ts" }
-    },
-    "deploy": {
-      "executor": "nx:run-commands",
-      "dependsOn": ["build"],
-      "options": {
-        "command": "docker build --platform linux/amd64 -f apps/<name>/Dockerfile -t <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest . && gcloud auth configure-docker --quiet && docker push <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest && gcloud run deploy <project>-<name> --image <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:latest --region <REGION> --platform managed --allow-unauthenticated --project <PROJECT_ID> --port 8080 --set-env-vars NODE_ENV=production"
-      }
-    }
-  }
-}
-```
+See `reference/analog-app-project-targets.json`. Substitute `<name>`, `<REGION>`, `<PROJECT_ID>`, `<REPO>`, and `<service-name>` throughout.
 
 ### Dockerfile for AnalogJS app
 
-Create `apps/<name>/Dockerfile`:
-
-```dockerfile
-# Build stage
-FROM node:22-alpine AS builder
-WORKDIR /app
-
-RUN npm install -g pnpm
-
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm nx build <name> --configuration=production
-
-# Production stage
-FROM node:22-alpine AS runner
-WORKDIR /app
-
-COPY --from=builder /app/dist/apps/<name> ./
-
-EXPOSE 8080
-ENV PORT=8080
-ENV NODE_ENV=production
-
-CMD ["node", "analog/server/index.mjs"]
-```
+Copy `reference/analog-app.Dockerfile` to `apps/<name>/Dockerfile` and replace `<name>`.
 
 ---
 
-## Step 5 — Add a library
+## Step 6 — Add a library
 
 Use the official Nx generator — never create folders manually.
 
@@ -301,7 +193,7 @@ Export public API from `libs/<path>/src/index.ts`.
 
 ---
 
-## Step 6 — Add pnpm scripts
+## Step 7 — Add pnpm scripts
 
 In root `package.json` `scripts`:
 
@@ -315,7 +207,7 @@ In root `package.json` `scripts`:
 
 ---
 
-## Step 7 — Verify setup
+## Step 8 — Verify setup
 
 ```bash
 # Type check
@@ -354,8 +246,12 @@ pnpm start:<name>
 
 - **Docker platform**: always `--platform linux/amd64` — Cloud Run runs amd64; building on Mac arm64 without this flag causes `exec format error`.
 - **Package manager**: `pnpm` only — never `npm` or `yarn`.
+- **pnpm in Dockerfile**: pin to `pnpm@9` (`RUN npm install -g pnpm@9`) — pnpm v10+ changes build script behavior.
 - **Lib creation**: always use `pnpm nx g` — never create library folders manually.
-- **Internal services** (schedulers, workers): `--no-allow-unauthenticated --ingress internal`.
+- **Deploy executor**: use `@maplestocks/gcloud:cloud-run` — never inline `gcloud run deploy` shell commands.
+- **Image tag**: `deploy-docker` uses `${BUILD_NUMBER:-latest}` — CI passes `BUILD_NUMBER=${{ github.sha }}`; local falls back to `latest`.
+- **Internal services** (schedulers, workers): set `"ingress": "internal"` in `deploy-cloudrun` production config.
+- **Public services** (web frontends): set `"allowUnauthenticated": true`, omit `ingress`.
 - **Port**: Cloud Run always expects `ENV PORT=8080` in Dockerfile.
 - **Nx upgrades**: use `pnpm nx migrate latest` — never `pnpm update` directly.
-- **Secrets format** in deploy command: `SECRET_NAME=SECRET_NAME:latest`, comma-separated for multiple.
+- **Secrets format** in `deploy-cloudrun`: `"SECRET_NAME=SECRET_NAME:latest"` as array entries.

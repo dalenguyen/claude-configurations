@@ -1,0 +1,63 @@
+{
+  "name": "<name>",
+  "projectType": "application",
+  "tags": ["scope:app", "type:web"],
+  "targets": {
+    "build": {
+      "executor": "@analogjs/platform:vite",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/<name>",
+        "configFile": "apps/<name>/vite.config.ts",
+        "main": "apps/<name>/src/main.ts",
+        "tsConfig": "apps/<name>/tsconfig.app.json"
+      }
+    },
+    "serve": {
+      "executor": "@analogjs/platform:vite-dev-server",
+      "options": { "buildTarget": "<name>:build", "port": 4200 }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": { "config": "apps/<name>/vitest.config.ts" }
+    },
+    "deploy-docker": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "commands": [
+          "docker build --platform linux/amd64 -f apps/<name>/Dockerfile -t <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:${BUILD_NUMBER:-latest} .",
+          "gcloud auth configure-docker <REGION>-docker.pkg.dev --quiet",
+          "docker push <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:${BUILD_NUMBER:-latest}"
+        ],
+        "parallel": false
+      }
+    },
+    "deploy-cloudrun": {
+      "executor": "@maplestocks/gcloud:cloud-run",
+      "configurations": {
+        "production": {
+          "project": "<PROJECT_ID>",
+          "serviceName": "<service-name>",
+          "containerImageName": "<name>",
+          "containerRegistry": "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>",
+          "allowUnauthenticated": true,
+          "port": 8080,
+          "envVars": {
+            "NODE_ENV": "production"
+          }
+        }
+      }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx deploy-docker <name>",
+          "nx deploy-cloudrun <name> --configuration production"
+        ],
+        "parallel": false
+      }
+    }
+  }
+}

@@ -5,15 +5,7 @@
     "ENABLE_TOOL_SEARCH": "1"
   },
   "permissions": {
-    "allow": [
-      "Bash",
-      "Edit"
-    ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ]
+    "defaultMode": "acceptEdits"
   },
   "enabledPlugins": {
     "discord@claude-plugins-official": true,
@@ -41,9 +33,15 @@
         "source": "github",
         "repo": "warpdotdev/claude-code-warp"
       }
+    },
+    "mcp-apps": {
+      "source": {
+        "source": "github",
+        "repo": "modelcontextprotocol/ext-apps"
+      }
     }
   },
-  "effortLevel": "medium",
+  "effortLevel": "high",
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,
   "feedbackSurveyState": {

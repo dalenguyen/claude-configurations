@@ -1,0 +1,70 @@
+{
+  "name": "<name>",
+  "projectType": "application",
+  "tags": ["scope:app", "type:<name>"],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/<name>",
+        "main": "apps/<name>/src/main.ts",
+        "tsConfig": "apps/<name>/tsconfig.app.json",
+        "platform": "node",
+        "format": ["cjs"],
+        "bundle": true,
+        "thirdParty": true,
+        "esbuildOptions": { "outExtension": { ".js": ".js" } }
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": { "buildTarget": "<name>:build" }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "options": { "config": "apps/<name>/vite.config.ts" }
+    },
+    "deploy-docker": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "commands": [
+          "docker build --platform linux/amd64 -f apps/<name>/Dockerfile -t <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:${BUILD_NUMBER:-latest} .",
+          "gcloud auth configure-docker <REGION>-docker.pkg.dev --quiet",
+          "docker push <REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<name>:${BUILD_NUMBER:-latest}"
+        ],
+        "parallel": false
+      }
+    },
+    "deploy-cloudrun": {
+      "executor": "@maplestocks/gcloud:cloud-run",
+      "configurations": {
+        "production": {
+          "project": "<PROJECT_ID>",
+          "serviceName": "<service-name>",
+          "containerImageName": "<name>",
+          "containerRegistry": "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>",
+          "ingress": "internal",
+          "port": 8080,
+          "envVars": {
+            "NODE_ENV": "production"
+          },
+          "secrets": [
+            "<SECRET_NAME>=<SECRET_NAME>:latest"
+          ]
+        }
+      }
+    },
+    "deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx deploy-docker <name>",
+          "nx deploy-cloudrun <name> --configuration production"
+        ],
+        "parallel": false
+      }
+    }
+  }
+}
